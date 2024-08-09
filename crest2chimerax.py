@@ -1,5 +1,6 @@
 import argparse
 import dataclasses
+import functools
 import logging
 import math
 import os
@@ -15,6 +16,7 @@ class Conformer:
     energy_Eh: float
     energy_relative_kcalpermol: float = 0
     population_relative: float = 0
+    population_normalized: float = 0
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -22,28 +24,25 @@ logging.basicConfig(level=logging.DEBUG)
 argparser = argparse.ArgumentParser(prog='crest2chimerax',
                                     description='A script that takes CREST .xyz conformer ensemble and produces '
                                                 'ChimeraX script to visualize', )
-argparser.add_argument('infile', help='CREST file')
+argparser.add_argument('infile', help='CREST .xyz file')
 argparser.add_argument('outfile', help='ChimeraX .cxc file')
 argparser.add_argument('-r', '--refatoms', default='*',
                        help='Refatoms string as used in ChimeraX align command (* by default)')
 argparser.add_argument('-e', '--energy', type=float, default=6.0,
-                       help='Cutoff energy in kcal/mol (6 kcla/mol by default)')
+                       help='Cutoff energy in kcal/mol (6 kcal/mol by default)')
+argparser.add_argument('-p', '--population', type=float, default=1.0,
+                       help='Cumulative population threshold (1.0 by default)')
 args = argparser.parse_args()
 
 infile = os.path.abspath(args.infile)
 outfile = os.path.abspath(args.outfile)
 
-workdir = os.path.dirname(infile)
-os.chdir(workdir)
-logging.info(f'Working in {workdir}')
+os.chdir(os.path.dirname(infile))
 
 try:
     os.mkdir('./conformers')
 except FileExistsError:
     logging.error('Directory "conformers" already exists and will be overwritten!')
-    answer = input("Continue? ")
-    if not answer.upper() in ["Y", "YES"]:
-        exit(-1)
 
 conformers = []
 
@@ -66,11 +65,21 @@ e_min = min(conformers, key=lambda x: x.energy_Eh).energy_Eh
 for c in conformers:
     c.energy_relative_kcalpermol = (c.energy_Eh - e_min) * Eh_to_kcalpermol
     c.population_relative = math.exp(-c.energy_relative_kcalpermol / R / T)
+Z = functools.reduce(lambda z, x: z + x.population_relative, conformers, 0)
 conformers.sort(key=lambda x: x.energy_relative_kcalpermol)
-conformers = filter(lambda x: x.energy_Eh < e_min, conformers)
+for c in conformers:
+    c.population_normalized = c.population_relative / Z
+conformers = filter(lambda x: x.energy_relative_kcalpermol < args.energy, conformers)
+conformers_filtered = []
+total_population = 0
+for c in conformers:
+    conformers_filtered.append(c)
+    total_population += c.population_normalized
+    if total_population > args.population:
+        break
+conformers = conformers_filtered
 
 with open(outfile, 'w') as outfile:
-    outfile.writelines(f'cd {workdir}\n')
     for i, c in enumerate(conformers):
         outfile.writelines(f'open {c.fname}\n')
         outfile.writelines(f'transparency #{i + 1} {100 - c.population_relative * 100} target ab\n')
