@@ -21,4 +21,7 @@ option.
 You can use `-p` or `--population` option to limit displayed
 conformers to a fraction of total ensemble (useful for
 an ensemble with a couple of major conformers and lots of 
-barely populated ones)
+barely populated ones).
+
+To limit the tranpareny values and avoid having invisible structures
+`--transparency-maximum` can be used.

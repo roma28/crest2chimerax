@@ -32,6 +32,8 @@ argparser.add_argument('-e', '--energy', type=float, default=6.0,
                        help='Cutoff energy in kcal/mol (6 kcal/mol by default)')
 argparser.add_argument('-p', '--population', type=float, default=1.0,
                        help='Cumulative population threshold (1.0 by default)')
+argparser.add_argument('--maxtransparency', type=float, default=100,
+                       help='Maximum percent value of transparency (default 100% corresponds to completely transparent)')
 args = argparser.parse_args()
 
 infile = os.path.abspath(args.infile)
@@ -79,10 +81,11 @@ for c in conformers:
         break
 conformers = conformers_filtered
 
+
 with open(outfile, 'w') as outfile:
     for i, c in enumerate(conformers):
         outfile.writelines(f'open {c.fname}\n')
-        outfile.writelines(f'transparency #{i + 1} {100 - c.population_relative * 100} target ab\n')
+        outfile.writelines(f'transparency #{i + 1} {args.maxtransparency*(1 - c.population_relative)} target ab\n')
         if i == 0:
             continue
         outfile.writelines(f'align #{i + 1}@{args.refatoms} toAtoms #1@{args.refatoms}\n')
