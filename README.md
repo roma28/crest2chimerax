@@ -24,4 +24,4 @@ an ensemble with a couple of major conformers and lots of
 barely populated ones).
 
 To limit the tranpareny values and avoid having invisible structures
-`--transparency-maximum` can be used.
+`--maxtransparency` can be used.
